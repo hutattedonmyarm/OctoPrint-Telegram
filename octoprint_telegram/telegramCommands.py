@@ -1,9 +1,84 @@
+# -*- coding: utf-8 -*-
 from __future__ import absolute_import
 import logging, sarge, hashlib, datetime, time, operator, socket
+from requests.auth import HTTPBasicAuth
+import websocket
+import json
 import octoprint.filemanager
 import requests
 from flask.ext.babel import gettext
 from .telegramNotifications import telegramMsgDict
+
+class HomeeResponder():
+	def __init__(self, telegram, chat_id, logger):
+		self._telegram = telegram
+		self._chat_id = chat_id
+		self._logger = logger
+		self._switch_value = -1
+		self._error_message = 'Unknown error'
+		self._switch_id = 12
+		self._attribute_id = 97
+
+	def __call__(self, ws, data, data_type, cont):
+		print(ws)
+		d = {}
+		try:
+			d = json.loads(data)
+		except ValueError as er:
+			self._logger.error("Error parsing switch status: " + str(er))
+			self._error_message = 'Could not parse response from Homee'
+			self.send_feedback()
+			ws.close()
+			return
+		nodes = d.get('all', {}).get('nodes', {})
+		node = [node for node in nodes if node.get('id', None) == self._switch_id]
+		if len(node) != 1:
+			self._logger.error('Found ' + str(len(node)) + 'homee devices with ID ' + str(self._switch_id) + ', but expected 1')
+			self._error_message = 'Found ' + str(len(node)) + 'homee devices with ID ' + str(self._switch_id) + ', but expected 1'
+			self.send_feedback()
+			ws.close()
+			return
+		node = node[0]
+		attribute = [attribute for attribute in node['attributes'] if attribute.get('id', None) == self._attribute_id]
+		if len(attribute) != 1:
+			self._logger.error('Found ' + str(len(attribute)) + 'switch attributes devices with ID ' + str(self._attribute_id) + ', but expected 1')
+			self._error_message = 'Found ' + str(len(attribute)) + 'switch attributes with ID ' + str(self._attribute_id) + ', but expected 1'
+			self.send_feedback()
+			ws.close()
+			return
+		attribute = attribute[0]
+		value = None
+		try:
+			self._logger.debug('Power switch status attribute:')
+			self._logger.debug(json.dumps(attribute))
+			if 'current_value' not in attribute:
+				self._error_message = "Switch doesn't provide it's current status"
+			value = attribute.get('current_value', -1)
+			self._logger.debug('Power switch value: ' + str(value))
+			self._switch_value = int(value)
+			self.send_feedback()
+		except ValueError as er:
+			self._logger.error("Unknown power switch value: " + str(value))
+			self._logger.error(er)
+			self._error_message = "Unknown power switch value: " + str(value)
+			self.send_feedback()
+			ws.close()
+			return
+		ws.close()
+	
+	def send_feedback(self):
+		msg = self.get_value_string()
+		self._telegram.send_msg(gettext(msg), chatID=self._chat_id, msg_id = self._telegram.getUpdateMsgId(self._chat_id),inline=False)
+
+	def get_value_string(self):
+		if self._switch_value == -1:
+			return 'Power status unknown. ' + self._error_message
+		elif self._switch_value == 0:
+			return 'Printer is powered off!'
+		elif self._switch_value == 1:
+			return 'Printer is powered on!'
+
+
 
 ################################################################################################################
 # This class handles received commands/messages (commands in the following). commandDict{} holds the commands and their behavior.
@@ -22,6 +97,7 @@ class TCMD():
 		self.conSettingsTemp = []
 		self.dirHashDict = {}
 		self.tmpFileHash = ""
+		self._ws = None
 		self.commandDict = {
 			"Yes": 			{'cmd': self.cmdYes, 'bind_none': True},
 			"No":  			{'cmd': self.cmdNo, 'bind_none': True},
@@ -43,12 +119,104 @@ class TCMD():
 			'/con': 		{'cmd': self.cmdConnection, 'param': True},
 			'/user': 		{'cmd': self.cmdUser},
 			'/tune':		{'cmd': self.cmdTune, 'param': True},
-			'/help':  		{'cmd': self.cmdHelp, 'bind_none': True}
+			'/help':  		{'cmd': self.cmdHelp, 'bind_none': True},
+			'/on': {'cmd': self.cmdOn},
+			'/off': {'cmd': self.cmdOff},
+			'/powerstatus': {'cmd': self.cmdPowerStatus}
 		}
-		
+
+	def callWebhook(self, url, max_tries = 5):
+		num_tries = 0
+		status_code = -1
+		while num_tries < max_tries and status_code != 200:
+			num_tries += 1
+			try:
+				r = requests.get(url)
+				status_code = r.status_code
+			except:
+				status_code = 500
+		return status_code
+
+	def on_websocket_error(self, error):
+		self._logger.error("Websocket error:" + str(error))
+
+	def on_websocket_open(self):
+		self._logger.debug("Fetching homee devices")
+		self._ws.send('GET:all')
 
 ############################################################################################
 # COMMAND HANDLERS
+############################################################################################
+	def cmdPowerStatus(self, chat_id, from_id, cmd, parameter):
+		self._logger.debug("/powerstatus called")
+		url = self.main._settings.get(["homee_url"])
+		user = self.main._settings.get(["homee_user"]).encode('utf-8')
+		pw = self.main._settings.get(["homee_pass"]).encode('utf-8')
+		#return
+		if not url or not user or not pw:
+			self.main.send_msg(gettext("You have to configure the homee settings first"),chatID=chat_id, msg_id = self.main.getUpdateMsgId(chat_id),inline=False)
+			return
+		self.main.send_msg(gettext("Checking power status"),chatID=chat_id, msg_id = self.main.getUpdateMsgId(chat_id),inline=False)
+		ws_url = url.replace('http://','ws://').replace('https://','wss://')
+		pw = hashlib.sha512(pw).hexdigest()
+		data= {
+			"device_name": "homeeApi",
+			"device_hardware_id": "homeeApi",
+			"device_os": 5,
+			"device_type": 0,
+			"device_app": 1
+		}
+		r = None
+		try:
+			self._logger.debug("Fetching homee auth token")
+			r = requests.post(url+'/access_token', auth=HTTPBasicAuth(user, pw), data=data)
+		except Exception as e:
+			self._logger.debug("/powerstatus called")
+		if r.status_code == 401:
+			self._logger.error("Error authorizing with homee: " + str(r.status_code) + ': ' + r.text)
+			self.main.send_msg(gettext("Error authorizing with homee: Wrong username or password"),chatID=chat_id, msg_id = self.main.getUpdateMsgId(chat_id),inline=False)
+			return
+		elif r.status_code != 200:
+			self._logger.error("Error authorizing with homee: " + str(r.status_code) + ': ' + r.text)
+			self.main.send_msg(gettext("Error authorizing with homee: " + str(r.status_code) + ': ' + r.text),chatID=chat_id, msg_id = self.main.getUpdateMsgId(chat_id),inline=False)
+			return
+		resp = {}
+		for pair in r.text.split('&'):
+			p = pair.split('=')
+			resp[p[0]] = p[1]
+		token = resp.get('access_token', 'NO_TOKEN')
+		data_handler = HomeeResponder(self.main, chat_id, self._logger)
+		self._logger.debug("Opening websocket connection to homee")
+		self._ws = websocket.WebSocketApp(ws_url+'/connection?access_token=' + token, on_error = self.on_websocket_error, on_open = self.on_websocket_open, on_data = data_handler, subprotocols=['v2'])
+		self._ws.run_forever(ping_interval=30, origin=url)
+
+############################################################################################
+	def cmdOn(self, chat_id, from_id, cmd, parameter):
+		self.main.send_msg(gettext("Turning printer on."),chatID=chat_id, msg_id = self.main.getUpdateMsgId(chat_id),inline=False)
+		self._logger.debug("Toggling printer on")
+		webhook_url = self.main._settings.get(["switch_on_url"])
+		if not webhook_url:
+			self.main.send_msg(gettext("Can't turn on the printer, the webhook URL is not set."),chatID=chat_id, msg_id = self.main.getUpdateMsgId(chat_id),inline=False)
+		status_code = self.callWebhook(webhook_url)
+		if status_code == 200:
+			self.main.send_msg(gettext("Printer is on!"),chatID=chat_id, msg_id = self.main.getUpdateMsgId(chat_id),inline=False)
+		else:
+			self._logger.debug("Webhook for /on responded with status: " + str(status_code))
+			self.main.send_msg(gettext("Webhook doesn't respond."),chatID=chat_id, msg_id = self.main.getUpdateMsgId(chat_id),inline=False)
+
+############################################################################################
+	def cmdOff(self, chat_id, from_id, cmd, parameter):
+		self.main.send_msg(gettext("Turning printer off."),chatID=chat_id, msg_id = self.main.getUpdateMsgId(chat_id),inline=False)
+		self._logger.debug("Toggling printer off")
+		webhook_url = self.main._settings.get(["switch_off_url"])
+		if not webhook_url:
+			self.main.send_msg(gettext("Can't turn on the printer, the webhook URL is not set."),chatID=chat_id, msg_id = self.main.getUpdateMsgId(chat_id),inline=False)
+		status_code = self.callWebhook(webhook_url)
+		if status_code == 200:
+			self.main.send_msg(gettext("Printer is off!"),chatID=chat_id, msg_id = self.main.getUpdateMsgId(chat_id),inline=False)
+		else:
+			self._logger.debug("Webhook for /off responded with status: " + str(status_code))
+			self.main.send_msg(gettext("Webhook doesn't respond."),chatID=chat_id, msg_id = self.main.getUpdateMsgId(chat_id),inline=False)
 ############################################################################################
 	def cmdYes(self,chat_id,from_id,cmd,parameter):
 		self.main.send_msg(gettext("Alright."),chatID=chat_id, msg_id = self.main.getUpdateMsgId(chat_id),inline=False)
@@ -349,7 +517,7 @@ class TCMD():
 			i = 1
 			serverCommands = { 'serverRestartCommand':   ["Restart OctoPrint", "/sys_sys_Restart OctoPrint"],
 							  'systemRestartCommand':   ["Reboot System", "/sys_sys_Reboot System"],
-						      'systemShutdownCommand':  ["Shutdown System","/sys_sys_Shutdown System"]
+							  'systemShutdownCommand':  ["Shutdown System","/sys_sys_Shutdown System"]
 			}
 			for index in serverCommands:
 				commandText = self.main._settings.global_get(['server', 'commands', index])
@@ -717,24 +885,24 @@ class TCMD():
 ############################################################################################	
 	def cmdHelp(self,chat_id,from_id,cmd,parameter):
 		self.main.send_msg(self.gEmo('info') + gettext(" *The following commands are known:*\n\n"
-		                           "/abort - Aborts the currently running print. A confirmation is required.\n"
-		                           "/shutup - Disables automatic notifications till the next print ends.\n"
-		                           "/dontshutup - The opposite of /shutup - Makes the bot talk again.\n"
-		                           "/status - Sends the current status including a current photo.\n"
+								   "/abort - Aborts the currently running print. A confirmation is required.\n"
+								   "/shutup - Disables automatic notifications till the next print ends.\n"
+								   "/dontshutup - The opposite of /shutup - Makes the bot talk again.\n"
+								   "/status - Sends the current status including a current photo.\n"
 								   "/gif - Sends a gif from the current video.\n"
 								   "/supergif - Sends a bigger gif from the current video.\n"
-		                           "/settings - Displays the current notification settings and allows you to change them.\n"
-		                           "/files - Lists all the files available for printing.\n"
+								   "/settings - Displays the current notification settings and allows you to change them.\n"
+								   "/files - Lists all the files available for printing.\n"
 								   "/filament - Shows you your filament spools or lets you change it. Requires the Filament Manager Plugin.\n"
-		                           "/print - Lets you start a print. A confirmation is required.\n"
-		                           "/togglepause - Pause/Resume current Print.\n"
-		                           "/con - Connect/disconnect printer.\n"
-		                           "/upload - You can just send me a gcode file to save it to my library.\n"
-		                           "/sys - Execute Octoprint System Commands.\n"
-		                           "/ctrl - Use self defined controls from Octoprint.\n"
-		                           "/tune - Set feed- and flowrate. Control temperatures.\n"
-		                           "/user - Get user info.\n"
-		                           "/help - Show this help message."),chatID=chat_id,markup="Markdown")
+								   "/print - Lets you start a print. A confirmation is required.\n"
+								   "/togglepause - Pause/Resume current Print.\n"
+								   "/con - Connect/disconnect printer.\n"
+								   "/upload - You can just send me a gcode file to save it to my library.\n"
+								   "/sys - Execute Octoprint System Commands.\n"
+								   "/ctrl - Use self defined controls from Octoprint.\n"
+								   "/tune - Set feed- and flowrate. Control temperatures.\n"
+								   "/user - Get user info.\n"
+								   "/help - Show this help message."),chatID=chat_id,markup="Markdown")
 ############################################################################################
 # FILE HELPERS
 ############################################################################################
@@ -817,7 +985,7 @@ class TCMD():
 			if 'estimatedPrintTime' in meta['analysis']:
 				msg += "\n<b>"+self.main.emojis['hourglass with flowing sand']+"Print Time:</b> "+ self.formatFuzzyPrintTime(meta['analysis']['estimatedPrintTime'])
 				printTime = meta['analysis']['estimatedPrintTime']
-        # giloser 17/07/19''
+		# giloser 17/07/19''
 		try:
 			time_finish = self.main.calculate_ETA(printTime)
 			msg += "\n<b>"+self.main.emojis['chequered flag']+"Completed Time:</b> "+ time_finish
@@ -1331,92 +1499,92 @@ class TCMD():
 
 ############################################################################################
 	def formatFuzzyPrintTime(self,totalSeconds):
-    ##
-     # from octoprint/static/js/app/helpers.js transfered to python
-     #
-     # Formats a print time estimate in a very fuzzy way.
-     #
-     # Accuracy decreases the higher the estimation is:
-     #
-     #   # less than 30s: "a couple of seconds"
-     #   # 30s to a minute: "less than a minute"
-     #   # 1 to 30min: rounded to full minutes, above 30s is minute + 1 ("27 minutes", "2 minutes")
-     #   # 30min to 40min: "40 minutes"
-     #   # 40min to 50min: "50 minutes"
-     #   # 50min to 1h: "1 hour"
-     #   # 1 to 12h: rounded to half hours, 15min to 45min is ".5", above that hour + 1 ("4 hours", "2.5 hours")
-     #   # 12 to 24h: rounded to full hours, above 30min is hour + 1, over 23.5h is "1 day"
-     #   # Over a day: rounded to half days, 8h to 16h is ".5", above that days + 1 ("1 day", "4 days", "2.5 days")
-     #/
+	##
+	 # from octoprint/static/js/app/helpers.js transfered to python
+	 #
+	 # Formats a print time estimate in a very fuzzy way.
+	 #
+	 # Accuracy decreases the higher the estimation is:
+	 #
+	 #   # less than 30s: "a couple of seconds"
+	 #   # 30s to a minute: "less than a minute"
+	 #   # 1 to 30min: rounded to full minutes, above 30s is minute + 1 ("27 minutes", "2 minutes")
+	 #   # 30min to 40min: "40 minutes"
+	 #   # 40min to 50min: "50 minutes"
+	 #   # 50min to 1h: "1 hour"
+	 #   # 1 to 12h: rounded to half hours, 15min to 45min is ".5", above that hour + 1 ("4 hours", "2.5 hours")
+	 #   # 12 to 24h: rounded to full hours, above 30min is hour + 1, over 23.5h is "1 day"
+	 #   # Over a day: rounded to half days, 8h to 16h is ".5", above that days + 1 ("1 day", "4 days", "2.5 days")
+	 #/
 
-	    if not totalSeconds or totalSeconds < 1:
-	    	return "-";
-	    replacements = {
-	        'days': int(totalSeconds)/86400,
-	        'hours': int(totalSeconds)/3600,
-	        'minutes': int(totalSeconds)/60,
-	        'seconds': int(totalSeconds),
-	        'totalSeconds': totalSeconds
-	    }
-	    text = "-";
-	    if replacements['days'] >= 1:
-	        # days
-	        if replacements["hours"] >= 16:
-	            replacements['days'] += 1
-	            text = "%(days)d days"
-	        elif replacements["hours"] >= 8 and replacements["hours"] < 16:
-	            text = "%(days)d.5 days"
-	        else:
-	            if days == 1:
-	                text = "%(days)d day"
-	            else:
-	                text = "%(days)d days"
-	    elif replacements['hours'] >= 1:
-	        # only hours
-	        if replacements["hours"] < 12:
-	            if replacements['minutes'] < 15:
-	                # less than .15 => .0
-	                if replacements["hours"] == 1:
-	                    text = "%(hours)d hour"
-	                else:
-	                    text = "%(hours)d hours"
-	            elif replacements['minutes'] >= 15 and replacements['minutes'] < 45:
-	                # between .25 and .75 => .5
-	                text = "%(hours)d.5 hours"
-	            else:
-	                # over .75 => hours + 1
-	                replacements["hours"] += 1
-	                text = "%(hours)d hours"
-	        else:
-	            if replacements["hours"] == 23 and replacements['minutes'] > 30:
-	                # over 23.5 hours => 1 day
-	                text = "1 day"
-	            else:
-	                if replacements['minutes'] > 30:
-	                    # over .5 => hours + 1
-	                    replacements["hours"] += 1
-	                text = "%(hours)d hours"
-	    elif replacements['minutes'] >= 1:
-	        # only minutes
-	        if replacements['minutes'] < 2:
-	            if replacements['seconds'] < 30:
-	                text = "a minute"
-	            else:
-	                text = "2 minutes"
-	        elif replacements['minutes'] < 30:
-	            if replacements['seconds'] > 30:
-	                replacements["minutes"] += 1;
-	            text = "%(minutes)d minutes"
-	        elif replacements['minutes'] <= 40:
-	            text = "40 minutes"
-	        elif replacements['minutes'] <= 50:
-	            text = "50 minutes"
-	        else:
-	            text = "1 hour"
-	    else:
-	        # only seconds
-	        if seconds < 30:
-	            text = "a couple of seconds"
-	        else:
-	            text = "less than a minute"
-	    return text % replacements
+		if not totalSeconds or totalSeconds < 1:
+			return "-";
+		replacements = {
+			'days': int(totalSeconds)/86400,
+			'hours': int(totalSeconds)/3600,
+			'minutes': int(totalSeconds)/60,
+			'seconds': int(totalSeconds),
+			'totalSeconds': totalSeconds
+		}
+		text = "-";
+		if replacements['days'] >= 1:
+			# days
+			if replacements["hours"] >= 16:
+				replacements['days'] += 1
+				text = "%(days)d days"
+			elif replacements["hours"] >= 8 and replacements["hours"] < 16:
+				text = "%(days)d.5 days"
+			else:
+				if days == 1:
+					text = "%(days)d day"
+				else:
+					text = "%(days)d days"
+		elif replacements['hours'] >= 1:
+			# only hours
+			if replacements["hours"] < 12:
+				if replacements['minutes'] < 15:
+					# less than .15 => .0
+					if replacements["hours"] == 1:
+						text = "%(hours)d hour"
+					else:
+						text = "%(hours)d hours"
+				elif replacements['minutes'] >= 15 and replacements['minutes'] < 45:
+					# between .25 and .75 => .5
+					text = "%(hours)d.5 hours"
+				else:
+					# over .75 => hours + 1
+					replacements["hours"] += 1
+					text = "%(hours)d hours"
+			else:
+				if replacements["hours"] == 23 and replacements['minutes'] > 30:
+					# over 23.5 hours => 1 day
+					text = "1 day"
+				else:
+					if replacements['minutes'] > 30:
+						# over .5 => hours + 1
+						replacements["hours"] += 1
+					text = "%(hours)d hours"
+		elif replacements['minutes'] >= 1:
+			# only minutes
+			if replacements['minutes'] < 2:
+				if replacements['seconds'] < 30:
+					text = "a minute"
+				else:
+					text = "2 minutes"
+			elif replacements['minutes'] < 30:
+				if replacements['seconds'] > 30:
+					replacements["minutes"] += 1;
+				text = "%(minutes)d minutes"
+			elif replacements['minutes'] <= 40:
+				text = "40 minutes"
+			elif replacements['minutes'] <= 50:
+				text = "50 minutes"
+			else:
+				text = "1 hour"
+		else:
+			# only seconds
+			if seconds < 30:
+				text = "a couple of seconds"
+			else:
+				text = "less than a minute"
+		return text % replacements

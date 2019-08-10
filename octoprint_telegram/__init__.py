@@ -640,7 +640,13 @@ class TelegramPlugin(octoprint.plugin.EventHandlerPlugin,
 			send_icon = True,
 			image_not_connected = True,
 			gif_not_connected = True, #GWE 05/05/19 
-			fileOrder = False
+			fileOrder = False,
+			switch_on_url = '',
+			switch_off_url = '',
+			switch_status_url = '',
+			homee_url = '',
+			homee_user = '',
+			homee_pass = ''
 		)
 
 	def get_settings_preprocessors(self):

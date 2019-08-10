@@ -20,7 +20,36 @@
 			</span></p>
 		</div>
 	</div>
-	
+	<div class="control-group">
+		<label class="control-label">{{ _('Power On Webhook URL') }}</label>
+		<div class="controls">
+			<input type="text" class="input-block-level" id="settings_plugin_telegram_switch_on_url" data-bind="value: settings.settings.plugins.telegram.switch_on_url" />
+		</div>
+	</div>
+	<div class="control-group">
+		<label class="control-label">{{ _('Power Off Webhook URL') }}</label>
+		<div class="controls">
+			<input type="text" class="input-block-level" id="settings_plugin_telegram_switch_off_url" data-bind="value: settings.settings.plugins.telegram.switch_off_url" />
+		</div>
+	</div>
+	<div class="control-group">
+		<label class="control-label">{{ _('Homee IP and port') }}</label>
+		<div class="controls">
+			<input type="text" class="input-block-level" id="settings_plugin_telegram_homee_url" data-bind="value: settings.settings.plugins.telegram.homee_url" />
+		</div>
+	</div>
+	<div class="control-group">
+		<label class="control-label">{{ _('Homee username') }}</label>
+		<div class="controls">
+			<input type="text" class="input-block-level" id="settings_plugin_telegram_homee_user" data-bind="value: settings.settings.plugins.telegram.homee_user" />
+		</div>
+	</div>
+	<div class="control-group">
+		<label class="control-label">{{ _('Homee password') }}</label>
+		<div class="controls">
+			<input type="text" class="input-block-level" id="settings_plugin_telegram_homee_pass" data-bind="value: settings.settings.plugins.telegram.homee_pass" />
+		</div>
+	</div>
 	<br>
 	<hr>
 
