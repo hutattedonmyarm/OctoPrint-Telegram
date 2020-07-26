@@ -40,11 +40,11 @@ $(function() {
         self.isloading = ko.observable(false);
         self.errored = ko.observable(false);
         self.token_state_str = ko.observable("Unknown");
-    	self.editChatDialog = undefined;  
+      self.editChatDialog = undefined;  
         self.varInfoDialog = undefined;      
         self.emoInfoDialog = undefined;
         self.mupInfoDialog = undefined;  
-    	self.currChatID = "Unknown";
+      self.currChatID = "Unknown";
         self.currChatTitle = ko.observable("Unknown");
         self.bind_cmd = {}; 
         self.markupFrom = [];
@@ -443,7 +443,7 @@ $(function() {
                 ko.applyBindings(self, $("#telegram-user-allowed-chkbox-box")[0]);
             }
             
-	        self.editChatDialog.modal("show");
+          self.editChatDialog.modal("show");
         }
 
         self.showEditCmdDialog = function(data,option) {

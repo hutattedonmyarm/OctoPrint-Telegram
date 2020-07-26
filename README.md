@@ -13,13 +13,13 @@ Also, you can control Octoprint via messages (settings, start a print and much m
 
 - [Screenshots](#screenshots)
 - [Installation](#installation)
-	- [Create Telegram Bot](#create-telegram-bot)
-	- [Plugin setup](#plugin-setup)
-	- [User setup](#user-setup)
+  - [Create Telegram Bot](#create-telegram-bot)
+  - [Plugin setup](#plugin-setup)
+  - [User setup](#user-setup)
 - [Configuration](#configuration)
-	- [General](#general)
-	- [Users](#users)
-	- [Notifications](#notifications)
+  - [General](#general)
+  - [Users](#users)
+  - [Notifications](#notifications)
 - [Available Commands](#available-commands)
 - [Info / Contact / Help](#info--contact--help)
 
@@ -45,40 +45,40 @@ If you already have a bot, you only need your bot token to proceed. GOTO `4.` (o
 
 3. The botfather hands you a token. You need this to use your bot. Keep this token secret!
 
-	<img src="https://raw.githubusercontent.com/fabianonline/OctoPrint-Telegram/screenshots/bot_new.png" alt="Register new bot" width="35%" align="center"/>
-	
+  <img src="https://raw.githubusercontent.com/fabianonline/OctoPrint-Telegram/screenshots/bot_new.png" alt="Register new bot" width="35%" align="center"/>
+  
 <!-- omit in toc -->
 #### OPTIONAL
 
-	While you're there, you could also do the following steps:
+  While you're there, you could also do the following steps:
     
 
 4. Give your bot a nice profile picture. Send `/setuserpic` to @botfather, select the bot and send the Octoprint logo or any other image you like.
 
 
 5. Tell the botfather which commands are available. This enables Telegram to auto-complete commands to your bot. Send `/setcommands` to @botfather, select the bot and then send the lines in the box below (one message with multiple lines).
-	```markdown
-	abort - Aborts the currently running print. A confirmation is required.
-	shutup - Disables automatic notifications till the next print ends.
-	dontshutup - The opposite of /shutup - Makes the bot talk again.
-	status - Sends the current status including a current photo.
-	settings - Displays the current notification settings and allows you to change them.
-	files - Lists all the files available for printing.
-	filament - Shows you your filament spools or lets you change it.
-	print - Lets you start a print. A confirmation is required.
-	togglepause - Pause/Resume current Print.
-	con - Connect/disconnect printer.
-	upload - You can just send me a gcode file to save it to my library.
-	sys - Execute Octoprint System Commands.
-	ctrl - Use self defined controls from Octoprint.
-	tune - Set feed- and flowrate. Control temperatures.
-	user - get user info.
-	help - show list of commands.
-	gif - send a gif of 5 seconds 
-	supergif - send a gif of 10 seconds 
-	```
-	<img src="https://raw.githubusercontent.com/fabianonline/OctoPrint-Telegram/screenshots/bot_optional.png" alt="Optional bot settings" width="60%" align="center"/> <br><br><br>
-	
+  ```markdown
+  abort - Aborts the currently running print. A confirmation is required.
+  shutup - Disables automatic notifications till the next print ends.
+  dontshutup - The opposite of /shutup - Makes the bot talk again.
+  status - Sends the current status including a current photo.
+  settings - Displays the current notification settings and allows you to change them.
+  files - Lists all the files available for printing.
+  filament - Shows you your filament spools or lets you change it.
+  print - Lets you start a print. A confirmation is required.
+  togglepause - Pause/Resume current Print.
+  con - Connect/disconnect printer.
+  upload - You can just send me a gcode file to save it to my library.
+  sys - Execute Octoprint System Commands.
+  ctrl - Use self defined controls from Octoprint.
+  tune - Set feed- and flowrate. Control temperatures.
+  user - get user info.
+  help - show list of commands.
+  gif - send a gif of 5 seconds 
+  supergif - send a gif of 10 seconds 
+  ```
+  <img src="https://raw.githubusercontent.com/fabianonline/OctoPrint-Telegram/screenshots/bot_optional.png" alt="Optional bot settings" width="60%" align="center"/> <br><br><br>
+  
 ### Plugin setup
 
 1. Install the plugin via the bundled [Plugin Manager](https://github.com/foosel/OctoPrint/wiki/Plugin:-Plugin-Manager) or manually using this URL: `https://github.com/fabianonline/OctoPrint-Telegram/archive/stable.zip`
@@ -140,7 +140,7 @@ Configuration is done via the Octoprint settings dialog. Note that only admin us
 
 6. If send emojis is enabled, emojis will be send within messages. If disabled, all emojis in messages will be changed to empty strings.
 
-	<img src="https://raw.githubusercontent.com/fabianonline/OctoPrint-Telegram/screenshots/set_general.png" alt="General settings" width="70%" align="center"/><br><br><br>
+  <img src="https://raw.githubusercontent.com/fabianonline/OctoPrint-Telegram/screenshots/set_general.png" alt="General settings" width="70%" align="center"/><br><br><br>
 
 ### Users
 
@@ -153,31 +153,31 @@ There are users (private chat with single user) or groups you will see in the li
 2. By clicking on the *notification* icon, a dialog with a list of checkboxes for every known notification event will open. Checked notifications will be send to the user/group. When done, close the dialog. Don't forget to activate general notification in `3.`
 
 3. **IMPORTANT**<br>**a)** By clicking the *pencil* icon, you are able to enable/disable commands and notifications for the user/group in general. This will not affect the settings you made in `1.` and `2.`. It's an easy way to quickly activate/deactivate a user/group withot changing the settings. You will find the following options:
-	* For users:
-	  * *Allow to send commands*: This option will give the user the ability to send commands you defined in `1.`
-	* For groups: 
-	  * *Allow user commands*: This will allow *known* users to send commands. Settings of the specific users will be used. No other users in the group are allowed to send commands.
-		``` 
-		Example: User A, B and C are in one group. Only user A and B are known by the bot.
-		User A has /print enabled and user B has not. Both have /status enabled.
-		So user A is allowed to send /print and /status while user B is only allowed to
-		send /status. User C is not allowed to send any command.
-		```
+  * For users:
+    * *Allow to send commands*: This option will give the user the ability to send commands you defined in `1.`
+  * For groups: 
+    * *Allow user commands*: This will allow *known* users to send commands. Settings of the specific users will be used. No other users in the group are allowed to send commands.
+    ``` 
+    Example: User A, B and C are in one group. Only user A and B are known by the bot.
+    User A has /print enabled and user B has not. Both have /status enabled.
+    So user A is allowed to send /print and /status while user B is only allowed to
+    send /status. User C is not allowed to send any command.
+    ```
         
-	  * *Allow to send commands*: When this option is enabled, all users in the group are allowed to send commands. Choose the allowed commands by setting up `1.` for the group. If *Allow user commands* is enabled, known users will have the ability to send commands activated for them but not for the group.
-		``` 
-		Example: 'Allow user commands' is enabled for the group. User A and B are in the group.
-		Only user A is known by the bot. User A has /print enabled and the group has not. 
-		The group has /status enabled but user A not. So user A is allowed to send 
-		/print (user rights) and /status (group rights) while user B is only allowed to send 
-		/status. If 'Allow user commands' is disabled, also A will only be able to send /status.
-		```
-	* For both:
-	  * *Send notifications*: This will allow the bot to send the notifications you enabled in `2.` to the user/group.
+    * *Allow to send commands*: When this option is enabled, all users in the group are allowed to send commands. Choose the allowed commands by setting up `1.` for the group. If *Allow user commands* is enabled, known users will have the ability to send commands activated for them but not for the group.
+    ``` 
+    Example: 'Allow user commands' is enabled for the group. User A and B are in the group.
+    Only user A is known by the bot. User A has /print enabled and the group has not. 
+    The group has /status enabled but user A not. So user A is allowed to send 
+    /print (user rights) and /status (group rights) while user B is only allowed to send 
+    /status. If 'Allow user commands' is disabled, also A will only be able to send /status.
+    ```
+  * For both:
+    * *Send notifications*: This will allow the bot to send the notifications you enabled in `2.` to the user/group.
 
-	**b)** Click the *trash bin*, to delete the user. The user is only deleted if you hit 'Save' on settings dialog.
-	
-	<img src="https://raw.githubusercontent.com/fabianonline/OctoPrint-Telegram/screenshots/set_user.png" alt="User settings" width="70%" align="center"/><br><br><br>
+  **b)** Click the *trash bin*, to delete the user. The user is only deleted if you hit 'Save' on settings dialog.
+  
+  <img src="https://raw.githubusercontent.com/fabianonline/OctoPrint-Telegram/screenshots/set_user.png" alt="User settings" width="70%" align="center"/><br><br><br>
 
 ### Notifications
 
@@ -203,11 +203,11 @@ In this section you can configure the content of the notification messages.
    * `{bed_temp}`, `{e1_temp}`, `{e2_temp}` - Temperatures of bed, extruder 1 and extruder 2.
    * `{bed_target}`, `{e1_target}`, `{e2_target}` - Target temperatures of bed, extruder 1 and extruder 2.
    * You are also able to access the current printer state data. See [here](./dev_utils/datastructures/octoprint/_printer.get_current_data.py) for datastructure of this data. The base variable is `{status}`.
-	```
-	Example: {status[progress][filepos]} - will insert the actual position in the printed file.
-	```
+  ```
+  Example: {status[progress][filepos]} - will insert the actual position in the printed file.
+  ```
 
-	<img src="https://raw.githubusercontent.com/fabianonline/OctoPrint-Telegram/screenshots/set_messages.png" alt="Optional bot settings" width="70%" align="center"/><br><br><br>
+  <img src="https://raw.githubusercontent.com/fabianonline/OctoPrint-Telegram/screenshots/set_messages.png" alt="Optional bot settings" width="70%" align="center"/><br><br><br>
 
 ## Available Commands
 

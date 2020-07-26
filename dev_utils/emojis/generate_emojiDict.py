@@ -13,15 +13,15 @@ myDict = {}
 cntE = 0
 cntPass = 0
 for d in data:
-	cntE += 1
-	if 'description' in d and 'emoji' in d:
-		if d['description'] not in myDict:
-			myDict[d['description']] = d['emoji']
-			cntPass += 1
-		else:
-			print "Double entry for: {}".format(str(d))
-	else:
-		print "No description or emoji found for: {}".format(str(d))
+  cntE += 1
+  if 'description' in d and 'emoji' in d:
+    if d['description'] not in myDict:
+      myDict[d['description']] = d['emoji']
+      cntPass += 1
+    else:
+      print "Double entry for: {}".format(str(d))
+  else:
+    print "No description or emoji found for: {}".format(str(d))
 
 fileName = 'emojiDict.py'
 print "\n\nAdded " + str(cntPass) + " of " + str(cntE) + " emojis in "+str(sys.argv[1])+".\nSving now to " + fileName
@@ -29,7 +29,7 @@ print "\n\nAdded " + str(cntPass) + " of " + str(cntE) + " emojis in "+str(sys.a
 f = codecs.open(fileName,encoding='utf-8',mode='w+')
 f.write('# Generated with Data from:\n# https://github.com/github/gemoji\n\n# Overview can be found here (description in table on the page used as key in this dict):\n# http://apps.timwhitlock.info/emoji/tables/unicode\n\n\ntelegramEmojiDict = {\n') # python will convert \n to os.linesep
 for d in myDict:
-	f.write("'{}'".format(d)+": u'"+ myDict[d].encode("unicode_escape") + "',\n")
+  f.write("'{}'".format(d)+": u'"+ myDict[d].encode("unicode_escape") + "',\n")
 f.write("}")
 f.close() # you can omit in most cases as the destructor will call it
 

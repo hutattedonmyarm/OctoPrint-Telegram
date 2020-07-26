@@ -21,18 +21,18 @@ This bot listener is extracted from the plugin for standalone use without OctoPr
 Setup token and one or more chats. The structure of a chat should look something like this:
 ```
 '1234567890':{
-			'private' : True,
-			'allow_user' : True,
-			'accept_commands' : True,
-			'send_notifications' : True,
-			'title' : 'ExampleUser',
-			'commands':{  
-				'/print': False
-			},
-			'notifications':{
-				'PrinterStarted': False
-			}
-		}
+      'private' : True,
+      'allow_user' : True,
+      'accept_commands' : True,
+      'send_notifications' : True,
+      'title' : 'ExampleUser',
+      'commands':{  
+        '/print': False
+      },
+      'notifications':{
+        'PrinterStarted': False
+      }
+    }
 ```
 
 The `comamnds` and `notifications` sub directories are only needed, if you want to disable some rights for a user.
